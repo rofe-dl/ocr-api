@@ -10,13 +10,25 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("error_logger")
 
 
-async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
-    return JSONResponse(status_code=exc.status_code, content=jsonable_encoder(ErrorResponse(success=False, error=str(exc.detail))))
+async def http_exception_handler(
+    request: Request, exc: StarletteHTTPException
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=jsonable_encoder(ErrorResponse(success=False, error=str(exc.detail))),
+    )
 
 
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     # logger.exception(f"Unhandled exception | {request.url.path}: {exc}")
-    return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content=jsonable_encoder(ErrorResponse(success=False, error="Something has gone wrong! Please try again later.")))
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content=jsonable_encoder(
+            ErrorResponse(
+                success=False, error="Something has gone wrong! Please try again later."
+            )
+        ),
+    )
 
 
 def register_error_handlers(app: FastAPI) -> None:

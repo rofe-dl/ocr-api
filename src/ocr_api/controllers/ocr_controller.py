@@ -1,4 +1,4 @@
-from fastapi import HTTPException, UploadFile
+from fastapi import UploadFile
 from ocr_api.models.ocr_schema import OCRResponse
 import ocr_api.services.ocr_service as ocr_service
 
@@ -14,5 +14,5 @@ async def handle_text_extraction(image_file: UploadFile) -> OCRResponse:
         confidence=0.0,
         cached=False,
         metadata=None,
-        processing_time_ms=1.0
+        processing_time_ms=1.0,
     )
