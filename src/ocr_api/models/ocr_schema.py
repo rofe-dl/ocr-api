@@ -12,6 +12,6 @@ class OCRResponse(BaseModel):
     success: bool
     text: str
     confidence: float
-    # processing_time_ms: float
+    processing_time_ms: float
     cached: bool = False
     metadata: str | None = None
