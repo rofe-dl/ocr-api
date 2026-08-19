@@ -2,6 +2,7 @@ from fastapi import HTTPException, UploadFile
 from ocr_api.models.ocr_schema import OCRResponse
 import ocr_api.services.ocr_service as ocr_service
 import time
+import asyncio
 
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 ALLOWED_FILE_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/webp"}
@@ -21,7 +22,9 @@ async def handle_text_extraction(image_file: UploadFile) -> OCRResponse:
             status_code=400, detail="File type not supported. Supported file types: JPG, PNG, GIF"
         )
 
-    text, confidence = await ocr_service.process_image(image_content)
+    metadata, (text, confidence) = await asyncio.gather(
+        ocr_service.get_image_metadata(image_content, image_file), ocr_service.process_image(image_content)
+    )
 
     time_taken = round((time.perf_counter() - start_time) * 1000, 2)
 
@@ -30,6 +33,6 @@ async def handle_text_extraction(image_file: UploadFile) -> OCRResponse:
         text=text,
         confidence=confidence,
         cached=False,
-        metadata=None,
+        metadata=metadata,
         processing_time_ms=time_taken,
     )

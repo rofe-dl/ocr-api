@@ -2,10 +2,11 @@ from pydantic import BaseModel
 
 
 class ImageMetadata(BaseModel):
+    filename: str
+    size_bytes: int
     width: int
     height: int
-    format: str
-    mode: str
+    image_format: str
 
 
 class OCRResponse(BaseModel):
@@ -14,4 +15,4 @@ class OCRResponse(BaseModel):
     confidence: float
     processing_time_ms: float
     cached: bool = False
-    metadata: str | None = None
+    metadata: ImageMetadata | None = None
