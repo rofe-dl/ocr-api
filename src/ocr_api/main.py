@@ -12,8 +12,6 @@ app = FastAPI(
 register_error_handlers(app)
 
 # TODO: Rate limiter
-# TODO: Additional endpoints to check errors and logs
-# TODO: Add type-hinting to all functions
-# TODO: Try weird images, rotated images or images with no text
+# TODO: Caching
 
 app.include_router(api_router)

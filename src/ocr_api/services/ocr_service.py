@@ -7,23 +7,13 @@ from PIL import Image
 
 import logging
 import io
-from typing import Tuple, Dict
-
-from ocr_api.models.ocr_schema import ImageMetadata
+from typing import Tuple, Dict, List, Any
+import asyncio
 
 logger = logging.getLogger("error_logger")
 
 
-async def process_image(content: bytes) -> Tuple[str, float]:
-    client = ImageAnnotatorAsyncClient()
-
-    image = vision.Image(content=content)
-    feature = vision.Feature(type_=vision.Feature.Type.DOCUMENT_TEXT_DETECTION)
-    request = vision.AnnotateImageRequest(image=image, features=[feature])
-
-    responses = await client.batch_annotate_images(requests=[request])
-    response = responses.responses[0]
-
+def _calculate_confidence_and_text(response: vision.AnnotateImageResponse) -> Tuple[str, float]:
     if response.error.message:
         raise HTTPException(status_code=500, detail=response.error.message)
 
@@ -43,20 +33,82 @@ async def process_image(content: bytes) -> Tuple[str, float]:
                             count += 1
 
     avg_confidence = 0.0
-
     if count > 0:
         avg_confidence = round(total_confidence / count, 2)
     elif text:
         avg_confidence = 1.0
 
-    return (text.strip(), avg_confidence)
+    return text.strip(), avg_confidence
 
 
-async def batch_process_images():
-    pass
+async def process_image(content: bytes) -> Tuple[str, float]:
+    client = ImageAnnotatorAsyncClient()
+
+    image = vision.Image(content=content)
+    feature = vision.Feature(type_=vision.Feature.Type.DOCUMENT_TEXT_DETECTION)
+    request = vision.AnnotateImageRequest(image=image, features=[feature])
+
+    responses = await client.batch_annotate_images(requests=[request])
+    return _calculate_confidence_and_text(responses.responses[0])
 
 
-async def get_image_metadata(image_content: bytes, image_file: UploadFile) -> ImageMetadata:
+async def batch_process_images(
+    images_bytes_and_files: List[Tuple[bytes, UploadFile]],
+) -> List[Dict[str, Any]]:
+    client = ImageAnnotatorAsyncClient()
+    feature = vision.Feature(type_=vision.Feature.Type.DOCUMENT_TEXT_DETECTION)
+
+    requests = []
+    metadata_tasks = []
+
+    for content, file_obj in images_bytes_and_files:
+        image = vision.Image(content=content)
+
+        requests.append(vision.AnnotateImageRequest(image=image, features=[feature]))
+        metadata_tasks.append(get_image_metadata(content, file_obj))
+
+    # make the network request and metadata collection concurrently
+    all_results = await asyncio.gather(*metadata_tasks, client.batch_annotate_images(requests=requests))
+
+    # result of the batch network request is in the last index of all_results
+    metadatas = all_results[:-1]
+    batch_responses = all_results[-1]
+
+    results = []
+    for i, (content, file_obj) in enumerate(images_bytes_and_files):
+        # gather each file's response and corresponding metadata together into one dict
+        response = batch_responses.responses[i]
+        file_metadata = metadatas[i]
+
+        try:
+            text, confidence = _calculate_confidence_and_text(response)
+            results.append(
+                {
+                    "filename": file_obj.filename or f"image_{i}",
+                    "success": True,
+                    "text": text,
+                    "confidence": confidence,
+                    "metadata": file_metadata,
+                    "error": None,
+                }
+            )
+        except Exception as err:
+            logger.exception(f"Error processing {file_obj.filename}: {err}")
+            results.append(
+                {
+                    "filename": file_obj.filename or f"image_{i}",
+                    "success": False,
+                    "text": "",
+                    "confidence": 0.0,
+                    "metadata": file_metadata,
+                    "error": str(err),
+                }
+            )
+
+    return results
+
+
+async def get_image_metadata(image_content: bytes, image_file: UploadFile) -> Dict[str, Any]:
     base_metadata = {"filename": image_file.filename, "size_bytes": image_file.size}
 
     try:
@@ -68,4 +120,4 @@ async def get_image_metadata(image_content: bytes, image_file: UploadFile) -> Im
 
     except Exception as e:
         logger.exception(f"Could not read image metadata: {e}")
-        return {}
+        return base_metadata
