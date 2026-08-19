@@ -9,8 +9,16 @@ import logging
 import io
 from typing import Tuple, Dict, List, Any
 import asyncio
+import hashlib
 
 logger = logging.getLogger("error_logger")
+
+
+IMAGE_CACHE: Dict[str, Tuple[str, float]] = {}
+
+
+def _get_image_hash(content: bytes) -> str:
+    return hashlib.sha256(content).hexdigest()
 
 
 def _calculate_confidence_and_text(response: vision.AnnotateImageResponse) -> Tuple[str, float]:
@@ -41,7 +49,12 @@ def _calculate_confidence_and_text(response: vision.AnnotateImageResponse) -> Tu
     return text.strip(), avg_confidence
 
 
-async def process_image(content: bytes) -> Tuple[str, float]:
+async def process_image(content: bytes) -> Tuple[str, float, bool]:
+    image_hash = _get_image_hash(content)
+
+    if image_hash in IMAGE_CACHE:
+        return IMAGE_CACHE[image_hash]
+
     client = ImageAnnotatorAsyncClient()
 
     image = vision.Image(content=content)
@@ -49,7 +62,12 @@ async def process_image(content: bytes) -> Tuple[str, float]:
     request = vision.AnnotateImageRequest(image=image, features=[feature])
 
     responses = await client.batch_annotate_images(requests=[request])
-    return _calculate_confidence_and_text(responses.responses[0])
+    text, confidence = _calculate_confidence_and_text(responses.responses[0])
+
+    IMAGE_CACHE[image_hash] = (text, confidence, True)
+
+    # boolean denotes if its a cached response or not
+    return text, confidence, False
 
 
 async def batch_process_images(

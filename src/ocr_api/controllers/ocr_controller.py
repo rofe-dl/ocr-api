@@ -21,7 +21,7 @@ async def handle_text_extraction(image_file: UploadFile) -> OCRResponse:
     elif image_file.content_type not in ALLOWED_FILE_TYPES:
         raise HTTPException(status_code=400, detail="File type not supported. Supported: JPG, PNG, GIF")
 
-    metadata, (text, confidence) = await asyncio.gather(
+    metadata, (text, confidence, is_cached) = await asyncio.gather(
         ocr_service.get_image_metadata(image_content, image_file), ocr_service.process_image(image_content)
     )
 
@@ -31,7 +31,7 @@ async def handle_text_extraction(image_file: UploadFile) -> OCRResponse:
         success=True,
         text=text,
         confidence=confidence,
-        cached=False,
+        cached=is_cached,
         metadata=metadata,
         processing_time_ms=time_taken,
     )

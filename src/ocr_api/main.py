@@ -12,6 +12,5 @@ app = FastAPI(
 register_error_handlers(app)
 
 # TODO: Rate limiter
-# TODO: Caching
 
 app.include_router(api_router)
