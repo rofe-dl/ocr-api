@@ -53,3 +53,149 @@ The Swagger documentation page can be found at `<API_URL>/redoc` or `<API_URL>/d
 - Ruff is used along with git hooks to automatically format and style the code when `git commit` is used
 - Type hinting used for all functions
 - Sample images provided in the repo for testing
+
+## Response Formats
+
+`POST /api/v1/text-extraction`
+
+```json
+{
+  "success": true,
+  "text": "Further information may be obtained\nM.A., Fellow and Lecturer in Chemistry, H\nfrom Prof. A. Gilligan, D.Sc., Department\nLeeds, and from Mr. A. H. Worrall, M.A.,\nCollege, Jersey.",
+  "confidence": 0.95,
+  "processing_time_ms": 640.74,
+  "cached": false,
+  "metadata": {
+    "filename": "simple.jpeg",
+    "size_bytes": 24203,
+    "width": 690,
+    "height": 289,
+    "image_format": "JPEG"
+  }
+}
+```
+
+`POST /api/v1/batch-text-extraction`
+
+```json
+{
+  "success": true,
+  "total_images": 2,
+  "results": [
+    {
+      "filename": "small.png",
+      "success": true,
+      "text": "Cedric\nhimself knew\nnothing\nwhatever about it. It had never been\neven mentioned to him. He knew that\nhis papa had been an Englishman,\nbecause his mamma had told him so;\nbut then his papa had died when he\nwas so little a boy that he could not\nremember very much about him,\nexcept that he was big, and had blue\neyes and a long mustache, and that it\nwas a splendid thing to be carried\naround the room on his shoulder.",
+      "confidence": 0.98,
+      "metadata": {
+        "filename": "small.png",
+        "size_bytes": 133161,
+        "width": 486,
+        "height": 423,
+        "image_format": "PNG"
+      },
+      "error": null
+    },
+    {
+      "filename": "Rafidul_Islam_Resume.jpg",
+      "success": false,
+      "text": "",
+      "confidence": 0,
+      "metadata": {
+        "filename": "Rafidul_Islam_Resume.jpg",
+        "size_bytes": 87283,
+        "width": null,
+        "height": null,
+        "image_format": null
+      },
+      "error": "500: Bad image data."
+    }
+  ],
+  "processing_time_ms": 703.33
+}
+```
+
+## Google Cloud Run Deployment Steps
+
+1. Install Google Cloud CLI, go through the initialization process and select the right project.
+2. Enable Cloud Run, Artifact Registry, Cloud Build and Secrets Manager.
+
+   ```bash
+   glcoud services enable run.googleapis.com artifactregistry.googleapis.com \
+   cloudbuild.googleapis.com secretmanager.googleapis.com
+   ```
+
+3. Create a repo in Artifact Registry.
+
+   ```bash
+   gcloud artifacts repositories create ocr-api-repo \
+   --repository-format=docker \
+   --location=asia-southeast1
+   ```
+
+4. Push the Docker image to Artifact Registry by building the image on the cloud.
+
+   ```bash
+   gcloud builds submit --tag asia-southeast1-docker.pkg.dev/<YOUR_PROJECT_ID>/ocr-api-repo/ocr-api:<LATEST_GIT_COMMIT_HASH> .
+   ```
+
+5. Create a Google Secret for the `REDIS_URL`.
+
+   ```bash
+   gcloud secrets create redis-url --replication-policy="automatic"
+   ```
+
+6. Store the secret value.
+
+   ```bash
+   echo -n "rediss://:your_password@your-redis-host:port" | \
+     gcloud secrets versions add redis-url --data-file=-
+   ```
+
+7. Give the default Cloud Run service account access to the new secret. To get your project number, run `gcloud projects describe YOUR_PROJECT_ID --format="value(projectNumber)"`
+
+   ```bash
+   gcloud secrets add-iam-policy-binding redis-url \
+     --member="serviceAccount:<YOUR_PROJECT_NUMBER>-compute@developer.gserviceaccount.com" \
+     --role="roles/secretmanager.secretAccessor"
+   ```
+
+8. Finally deploy using:
+
+   ```bash
+   gcloud run deploy ocr-api \
+     --image asia-southeast1-docker.pkg.dev/<YOUR_PROJECT_ID>/ocr-api-repo/ocr-api:<LATEST_GIT_COMMIT_HASH> \
+     --region asia-southeast1 \
+     --allow-unauthenticated \
+     --set-secrets REDIS_URL="redis-url:latest"
+   ```
+
+### Re-deploy
+
+1. Tag the new build like before and upload it:
+
+   ```bash
+   gcloud builds submit --tag asia-southeast1-docker.pkg.dev/<YOUR_PROJECT_ID>/ocr-api-repo/ocr-api:<LATEST_GIT_COMMIT_HASH> .
+   ```
+
+2. Deploy the new image:
+
+   ```bash
+   gcloud run deploy ocr-api \
+    --image asia-southeast1-docker.pkg.dev/<YOUR_PROJECT_ID>/ocr-api-repo/ocr-api:<LATEST_GIT_COMMIT_HASH> \
+    --region asia-southeast1
+   ```
+
+3. If you have to change a secret:
+
+   ```bash
+   echo -n "rediss://:your_password@your-redis-host:port" | \
+     gcloud secrets versions add redis-url --data-file=-
+
+   # then
+   gcloud run services update ocr-api \
+     --region asia-southeast1 \
+     --update-secrets REDIS_URL="redis-url:latest"
+   ```
+
+   As it points to the `latest` version of the variable, it'll pick up the new value.
