@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, Request, HTTPException, Depends
+from fastapi import APIRouter, UploadFile, Request, HTTPException, Depends, File
 import redis.asyncio as aioredis
 
 from ocr_api.models.ocr_schema import BatchOCRResponse, BatchOCRItemResult, OCRResponse
@@ -27,8 +27,11 @@ ALLOWED_FILE_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/gif"}
     },
 )
 async def extract_text(
-    request: Request, image: UploadFile, redis: aioredis.Redis = Depends(get_redis)
+    request: Request, image: UploadFile | None = File(None), redis: aioredis.Redis = Depends(get_redis)
 ) -> OCRResponse:
+    if not image:
+        raise HTTPException(status_code=400, detail="Please upload an image file.")
+
     start_time = time.perf_counter()
 
     image_content = await image.read()
@@ -63,7 +66,10 @@ async def extract_text(
         500: {"model": ErrorResponse},
     },
 )
-async def extract_text_batch(images: List[UploadFile]) -> BatchOCRResponse:
+async def extract_text_batch(images: List[UploadFile] = []) -> BatchOCRResponse:
+    if len(images) == 0:
+        raise HTTPException(status_code=400, detail="Please upload image files.")
+
     start_time = time.perf_counter()
 
     if not images:
