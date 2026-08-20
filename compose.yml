@@ -1,0 +1,18 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8080" # host:container
+    env_file:
+      - .env # copies env variables from this file and injects into container
+    volumes:
+      - ./src:/app/src # for local convenience, any changes to code are loaded by the container instead of the code baked into the image
+      - ./credentials.json:/app/credentials.json:ro # host:container volume mount, :ro so its read only
+    command: uv run fastapi dev src/ocr_api/main.py --host 0.0.0.0 --port 8080 # overrides the default CMD in Dockerfile, as local command is different from deployment
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"

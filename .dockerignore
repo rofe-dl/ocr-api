@@ -1,0 +1,8 @@
+sample_images/
+.ruff_cache/
+.env
+credentials.json
+.venv
+.git
+__pycache__
+*.pyc
