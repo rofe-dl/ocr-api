@@ -64,7 +64,7 @@ async def process_image(content: bytes, redis: aioredis.Redis) -> Tuple[str, flo
     text, confidence = _calculate_confidence_and_text(responses.responses[0])
 
     # caches response for future
-    await redis.setex(f"ocr:{image_hash}", 3600, json.dumps((text, confidence, True)))
+    await redis.setex(f"ocr:{image_hash}", 21600, json.dumps((text, confidence, True)))
 
     # boolean denotes if its a cached response or not
     return text, confidence, False
