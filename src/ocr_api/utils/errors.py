@@ -18,8 +18,7 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException) 
 
 
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-    # we're relying on the console for unhandled error logs atm which already happens automatically
-    # logger.exception(f"Unhandled exception | {request.url.path}: {exc}")
+    logger.exception(f"Unhandled exception | {request.url.path}: {exc}")
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content=jsonable_encoder(
