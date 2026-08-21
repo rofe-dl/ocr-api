@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 import redis.asyncio as aioredis
 import os
 import logging
+from ocr_api.dependencies import limiter
 
 info_logger = logging.getLogger("info_logger")
 
@@ -18,6 +19,9 @@ async def lifespan(app: FastAPI):
 
     app.state.redis = aioredis.from_url(REDIS_URL, decode_responses=True)
     info_logger.info("Successfully connected to Redis")
+
+    limiter._storage_uri = REDIS_URL
+    app.state.limiter = limiter
 
     yield
 

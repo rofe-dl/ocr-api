@@ -3,6 +3,7 @@ from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
 from ocr_api.models.error_response import ErrorResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from slowapi.errors import RateLimitExceeded
 
 import logging
 
@@ -14,6 +15,15 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException) 
     return JSONResponse(
         status_code=exc.status_code,
         content=jsonable_encoder(ErrorResponse(success=False, error=str(exc.detail))),
+    )
+
+
+async def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=jsonable_encoder(
+            ErrorResponse(success=False, error="Too many requests. Please try again later.")
+        ),
     )
 
 
@@ -30,3 +40,4 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
 def register_error_handlers(app: FastAPI) -> None:
     app.add_exception_handler(StarletteHTTPException, http_exception_handler)
     app.add_exception_handler(Exception, unhandled_exception_handler)
+    app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)

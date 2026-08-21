@@ -4,7 +4,7 @@ import redis.asyncio as aioredis
 from ocr_api.models.ocr_schema import BatchOCRResponse, BatchOCRItemResult, OCRResponse
 from ocr_api.models.error_response import ErrorResponse
 import ocr_api.services.ocr_service as ocr_service
-from ocr_api.dependencies import get_redis
+from ocr_api.dependencies import get_redis, limiter
 
 from typing import List
 import time
@@ -26,6 +26,7 @@ ALLOWED_FILE_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/gif"}
         500: {"model": ErrorResponse},
     },
 )
+@limiter.limit("10/minute")
 async def extract_text(
     request: Request, image: UploadFile | None = File(None), redis: aioredis.Redis = Depends(get_redis)
 ) -> OCRResponse:
@@ -66,7 +67,8 @@ async def extract_text(
         500: {"model": ErrorResponse},
     },
 )
-async def extract_text_batch(images: List[UploadFile] = []) -> BatchOCRResponse:
+@limiter.limit("5/minute")
+async def extract_text_batch(request: Request, images: List[UploadFile] = []) -> BatchOCRResponse:
     if len(images) == 0:
         raise HTTPException(status_code=400, detail="Please upload image files.")
 
