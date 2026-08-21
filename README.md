@@ -16,24 +16,24 @@ The Swagger documentation page can be found at `<API_URL>/redoc` or `<API_URL>/d
 
 1. The API has 2 endpoints:
 
-- This will extract text from one image and supports caching. It takes in an `image` as `multipart/form-data`.
+- `POST /api/v1/text-extraction`
 
-  It has a rate limit of `10/minute`.
+  This will extract text from one image and **supports caching**. It takes in an `image` as `multipart/form-data`.
+
+  It has a rate limit of `10 reqs/minute`.
 
   ```bash
-  POST /api/v1/text-extraction
-
   # curl command
   curl -i -X POST -w "\n" -F "image=@sample_images/simple.jpeg" http://localhost:8000/api/v1/text-extraction
   ```
 
-- This is for batch extraction from images. It only supports up to 10 images at once. Note that the field name is `images` for this endpoint.
+- `POST /api/v1/batch-text-extraction`
 
-  It has a rate limit of `5/minute`.
+  This is for batch extraction from images. It only supports up to 10 images at once. Note that the field name is `images` for this endpoint.
+
+  It has a rate limit of `5 reqs/minute`.
 
   ```bash
-  POST /api/v1/batch-text-extraction
-
   # curl command
   curl -i -X POST -w "\n" -F "images=@sample_images/simple.jpeg" -F "images=@sample_images/rotated.png" http://localhost:8000/api/v1/batch-text-extraction
   ```
