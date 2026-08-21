@@ -18,20 +18,24 @@ The Swagger documentation page can be found at `<API_URL>/redoc` or `<API_URL>/d
 
 - This will extract text from one image and supports caching. It takes in an `image` as `multipart/form-data`.
 
+  It has a rate limit of `10/minute`.
+
   ```bash
   POST /api/v1/text-extraction
 
   # curl command
-  curl -X POST -w "\n" -F "image=@sample_images/simple.jpeg" http://localhost:8000/api/v1/text-extraction
+  curl -i -X POST -w "\n" -F "image=@sample_images/simple.jpeg" http://localhost:8000/api/v1/text-extraction
   ```
 
 - This is for batch extraction from images. It only supports up to 10 images at once. Note that the field name is `images` for this endpoint.
+
+  It has a rate limit of `5/minute`.
 
   ```bash
   POST /api/v1/batch-text-extraction
 
   # curl command
-  curl -X POST -w "\n" -F "images=@sample_images/simple.jpeg" -F "images=@sample_images/rotated.png" http://localhost:8000/api/v1/batch-text-extraction
+  curl -i -X POST -w "\n" -F "images=@sample_images/simple.jpeg" -F "images=@sample_images/rotated.png" http://localhost:8000/api/v1/batch-text-extraction
   ```
 
 2. Image formats supported are: `JPG, PNG, GIF`
@@ -40,6 +44,7 @@ The Swagger documentation page can be found at `<API_URL>/redoc` or `<API_URL>/d
 5. Caching using Redis so cache does not disappear in serverless environments if the instance stops. Images are identified by their hashed value
 6. Confidence scores of the whole extraction calculated from the average of the extraction confidence of all words
 7. Error handling functions to catch unhandled errors and return generic messages
+8. Rate limiting using Redis as the store.
 
 ## Project Architecture
 
@@ -112,6 +117,24 @@ The Swagger documentation page can be found at `<API_URL>/redoc` or `<API_URL>/d
     }
   ],
   "processing_time_ms": 703.33
+}
+```
+
+## Error Formats
+
+Possible error codes:
+
+- `400`: Invalid request
+- `413`: Image size is too big
+- `422`: Invalid file format
+- `500`: Internal Server Error
+
+Example format
+
+```json
+{
+  "success": false,
+  "error": "Too many requests. Please try again later."
 }
 ```
 

@@ -23,6 +23,7 @@ ALLOWED_FILE_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/gif"}
     responses={
         400: {"model": ErrorResponse},
         413: {"model": ErrorResponse},
+        422: {"model": ErrorResponse},
         500: {"model": ErrorResponse},
     },
 )
@@ -38,9 +39,9 @@ async def extract_text(
     image_content = await image.read()
 
     if image.size > MAX_FILE_SIZE:
-        raise HTTPException(status_code=400, detail="Your file size cannot be more than 10 MB.")
+        raise HTTPException(status_code=413, detail="Your file size cannot be more than 10 MB.")
     elif image.content_type not in ALLOWED_FILE_TYPES:
-        raise HTTPException(status_code=400, detail="File type not supported. Supported: JPG, PNG, GIF")
+        raise HTTPException(status_code=422, detail="File type not supported. Supported: JPG, PNG, GIF")
 
     metadata, (text, confidence, is_cached) = await asyncio.gather(
         ocr_service.get_image_metadata(image_content, image), ocr_service.process_image(image_content, redis)
@@ -64,6 +65,7 @@ async def extract_text(
     responses={
         400: {"model": ErrorResponse},
         413: {"model": ErrorResponse},
+        422: {"model": ErrorResponse},
         500: {"model": ErrorResponse},
     },
 )
@@ -73,9 +75,6 @@ async def extract_text_batch(request: Request, images: List[UploadFile] = []) ->
         raise HTTPException(status_code=400, detail="Please upload image files.")
 
     start_time = time.perf_counter()
-
-    if not images:
-        raise HTTPException(status_code=400, detail="No files provided.")
 
     if len(images) > MAX_BATCH_SIZE:
         raise HTTPException(
@@ -88,14 +87,14 @@ async def extract_text_batch(request: Request, images: List[UploadFile] = []) ->
     for file_obj in images:
         if file_obj.content_type not in ALLOWED_FILE_TYPES:
             raise HTTPException(
-                status_code=400,
+                status_code=422,
                 detail=f"File type of '{file_obj.filename}' not supported. Supported: JPG, PNG, GIF",
             )
 
         content = await file_obj.read()
         if len(content) > MAX_FILE_SIZE:
             raise HTTPException(
-                status_code=400, detail=f"File '{file_obj.filename}' exceeds maximum allowed size of 10 MB."
+                status_code=413, detail=f"File '{file_obj.filename}' exceeds maximum allowed size of 10 MB."
             )
 
         items.append((content, file_obj))
